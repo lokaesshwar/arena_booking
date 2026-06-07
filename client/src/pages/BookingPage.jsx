@@ -54,7 +54,7 @@ export default function BookingPage() {
 
   const selectedDate = DATES[dateIdx];
 
-  // Load daily slot summary whenever date changes
+  // daily slot summary whenever date changes
   useEffect(() => {
     setLoadingSlots(true);
     api.getSlots(dateKey(selectedDate))
