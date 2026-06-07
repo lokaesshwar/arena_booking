@@ -43,14 +43,19 @@ export default function BookingPage() {
   const [dateIdx, setDateIdx] = useState(0);
   const [slot, setSlot] = useState(null);
   const [court, setCourt] = useState(null);
-  const [step, setStep] = useState("date"); // date | slot | form | confirm
+  const [step, setStep] = useState("date");
   const [availability, setAvailability] = useState(null);
   const [slotSummary, setSlotSummary] = useState([]);
   const [confirmedBooking, setConfirmedBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState(null);
-  const [myBookings, setMyBookings] = useState([]);
+
+  // load from localStorage on mount
+  const [myBookings, setMyBookings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("myBookings")) || []; }
+    catch { return []; }
+  });
 
   const selectedDate = DATES[dateIdx];
 
@@ -72,9 +77,7 @@ export default function BookingPage() {
       .catch(() => setAvailability(null));
   }, [selectedDate]);
 
-  const handleDateClick = (idx) => {
-    setDateIdx(idx);
-  };
+  const handleDateClick = (idx) => setDateIdx(idx);
 
   const handleSlotClick = (s) => {
     setSlot(s); setCourt(null); setStep("slot");
@@ -95,9 +98,19 @@ export default function BookingPage() {
       const res = await api.book({ courtId: court, date: dateKey(selectedDate), slot, ...formData });
       const booking = { ...res.booking, emailSent: res.emailSent };
       setConfirmedBooking(booking);
-      setMyBookings((prev) => [...prev, booking]);
+
+      // save to localStorage so it survives reload
+      setMyBookings((prev) => {
+        const updated = [...prev, booking];
+        localStorage.setItem("myBookings", JSON.stringify(updated));
+        return updated;
+      });
+
       setStep("confirm");
       loadAvailability(slot);
+
+      // refresh slot summary instantly without reload
+      api.getSlots(dateKey(selectedDate)).then((d) => setSlotSummary(d.slots)).catch(() => {});
     } catch (e) {
       setError(e.data?.error || "Booking failed. Please try again.");
     } finally {
@@ -192,9 +205,7 @@ export default function BookingPage() {
                 {step === "form" ? (
                   <div className="card">
                     <div className="form-header">
-                      <button className="form-back" onClick={handleBack} aria-label="Back">
-                        ←
-                      </button>
+                      <button className="form-back" onClick={handleBack} aria-label="Back">←</button>
                       <span className="form-court-tag">{availability?.courts?.[court]?.label || court}</span>
                       <span className="form-time-tag">{fmtSlot(slot)}</span>
                     </div>
@@ -225,15 +236,12 @@ export default function BookingPage() {
                           selectedCourt={court}
                           onCourtClick={handleCourtClick}
                         />
-                        {!court && (
-                          <p className="select-hint">↑ Tap a green court to book it</p>
-                        )}
+                        {!court && <p className="select-hint">↑ Tap a green court to book it</p>}
                       </>
                     )}
                   </div>
                 )}
 
-                {/* Summary sidebar for form step */}
                 {step === "form" && (
                   <div className="summary-card">
                     <div className="section-label">Summary</div>
