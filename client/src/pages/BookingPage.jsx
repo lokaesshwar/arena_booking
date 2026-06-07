@@ -54,7 +54,7 @@ export default function BookingPage() {
 
   const selectedDate = DATES[dateIdx];
 
-  // daily slot summary whenever date changes
+  // daily slot summary when date changes
   useEffect(() => {
     setLoadingSlots(true);
     api.getSlots(dateKey(selectedDate))
@@ -64,7 +64,7 @@ export default function BookingPage() {
     setSlot(null); setCourt(null); setAvailability(null); setStep("date");
   }, [dateIdx]);
 
-  // Load court availability when slot changes
+  // court availability when slot changes
   const loadAvailability = useCallback((s) => {
     setAvailability(null);
     api.getAvailability(dateKey(selectedDate), s)
