@@ -7,11 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// in-memory store, keyed by date -> slot -> bookings[]
+// bookings storage
 const store = {};
 
 function getSlotBookings(date, slot) {
-  return (store[date]?.[slot] || []);
+  return store[date]?.[slot] || [];
 }
 
 function addBooking(date, slot, booking) {
@@ -20,7 +20,7 @@ function addBooking(date, slot, booking) {
   store[date][slot].push(booking);
 }
 
-// check which courts are free for a given date + slot
+// availability check
 app.get("/availability", (req, res) => {
   const { date, slot } = req.query;
   if (!date || !slot) return res.status(400).json({ error: "date and slot required" });
@@ -32,7 +32,7 @@ app.get("/availability", (req, res) => {
   res.json({ date, slot, ...result });
 });
 
-// get all hourly slots for a day with how many courts are still open
+// daily slots
 app.get("/slots", (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: "date required" });
@@ -49,62 +49,43 @@ app.get("/slots", (req, res) => {
   res.json({ date, slots });
 });
 
-// book a court — validates, checks conflicts, saves and returns a token
+// new booking
 app.post("/book", async (req, res) => {
   const { courtId, date, slot, name, phone, email } = req.body;
 
-  if (!courtId || !date || !slot || !name || !phone) {
+  if (!courtId || !date || !slot || !name || !phone)
     return res.status(400).json({ error: "courtId, date, slot, name, phone are required" });
-  }
 
-  if (!COURTS[courtId]) {
+  if (!COURTS[courtId])
     return res.status(400).json({ error: "Invalid courtId" });
-  }
 
   const existing = getSlotBookings(date, slot);
   const bookedIds = existing.map((b) => b.courtId);
 
   if (!canBook(courtId, bookedIds)) {
     const { reasons } = computeAvailability(bookedIds);
-    return res.status(409).json({
-      error: "Court is not available for this slot",
-      reasons: reasons[courtId] || [],
-    });
+    return res.status(409).json({ error: "Court is not available for this slot", reasons: reasons[courtId] || [] });
   }
 
-  // 6-digit token, easy to quote over the phone
   const token = String(Math.floor(100000 + Math.random() * 900000));
-  const booking = {
-    id: uuidv4(),
-    token,
-    courtId,
-    date,
-    slot,
-    name,
-    phone,
-    email: email || null,
-    createdAt: new Date().toISOString(),
-  };
+  const booking = { id: uuidv4(), token, courtId, date, slot, name, phone, email: email || null, createdAt: new Date().toISOString() };
 
   addBooking(date, slot, booking);
-
   res.status(201).json({ booking });
 });
 
-// all bookings for a day, sorted by slot — mostly for the admin desk
+// all bookings
 app.get("/bookings", (req, res) => {
   const { date } = req.query;
   if (!date) return res.status(400).json({ error: "date required" });
 
   const dayData = store[date] || {};
-  const all = Object.entries(dayData).flatMap(([slot, bookings]) =>
-    bookings.map((b) => ({ ...b, slot }))
-  );
+  const all = Object.entries(dayData).flatMap(([slot, bookings]) => bookings.map((b) => ({ ...b, slot })));
   all.sort((a, b) => a.slot.localeCompare(b.slot));
   res.json({ date, bookings: all });
 });
 
-// cancel by booking id
+// cancel booking
 app.delete("/book/:id", (req, res) => {
   const { id } = req.params;
   let found = false;
@@ -112,11 +93,7 @@ app.delete("/book/:id", (req, res) => {
   for (const date of Object.keys(store)) {
     for (const slot of Object.keys(store[date])) {
       const idx = store[date][slot].findIndex((b) => b.id === id);
-      if (idx !== -1) {
-        store[date][slot].splice(idx, 1);
-        found = true;
-        break;
-      }
+      if (idx !== -1) { store[date][slot].splice(idx, 1); found = true; break; }
     }
     if (found) break;
   }
@@ -126,4 +103,4 @@ app.delete("/book/:id", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Arena booking server running on :${PORT}`));
+app.listen(PORT, () => console.log(`Server running on :${PORT}`));
