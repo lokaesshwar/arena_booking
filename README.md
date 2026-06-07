@@ -29,16 +29,6 @@ npm install
 node index.js         # Runs on port 3001
 ```
 
-**Optional email (confirmation emails):**
-```bash
-SMTP_HOST=smtp.gmail.com \
-SMTP_PORT=587 \
-SMTP_USER=you@gmail.com \
-SMTP_PASS=your-app-password \
-node index.js
-```
-
-> For Gmail, use an [App Password](https://myaccount.google.com/apppasswords) (not your main password).
 
 ### 2. Frontend
 
